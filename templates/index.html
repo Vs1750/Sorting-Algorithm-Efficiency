@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html data-bs-theme="dark" lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="initial-scale=1, width=device-width">
+
+        <!-- http://getbootstrap.com/docs/5.3/ -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+
+        <link href="/static/favicon.ico" rel="icon">
+        <link href="/static/styles.css" rel="stylesheet">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;600&display=swap" rel="stylesheet">
+
+        <title>Sorting Algorithm Efficiency</title>
+
+        <script>
+            // This function is written with the help from Claude
+            function parseNumbers(text) {
+                // allow "[5,7,2]" as well as "5, 7, 2" or numbers separated by spaces/newlines
+                const cleaned = text.replace(/[\[\]]/g, "");
+                const parts = cleaned.split(/[\s,]+/).filter(s => s !== "");
+
+                if (parts.length === 0) throw new Error("Enter at least one number.");
+
+                return parts.map(s => {
+                    const n = Number(s);
+                    if (!Number.isFinite(n)) throw new Error(`"${s}" is not a valid number.`);
+                    return n;
+                });
+            }
+            function shuffledSequence(number) {
+                let array = Array.from({ length: number }, (_, index) => 1 + index);
+
+                for (let i = array.length - 1; i > 0; i--) {
+                    // Pick a random index from 0 to i
+                    const j = Math.floor(Math.random() * (i + 1));
+
+                    // Swap elements array[i] and array[j]
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+            // This function is written with the help from Claude
+            async function requestData(algorithm, numbers, signal) {
+                const response = await fetch("/api/benchmark", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ algorithm, numbers }),
+                    signal: signal
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error ${response.status}. This sort may have timed out for this input size.`);
+                }
+
+                const data = await response.json();
+                return data;
+            }
+            function showResults(data, start_time) {
+                const total_time_taken = (performance.now() - start_time) / 1000
+
+                let output_id = "output-" + data.name
+                let time_id = "time-" + data.name
+                let total_time_id = "total-time-" + data.name
+
+                document.getElementById(output_id).value = data.sorted.join(" ")
+
+                document.getElementById(data.name).classList.add("completed");
+                document.getElementById(time_id).classList.add("completed");
+                document.getElementById(total_time_id).classList.add("completed");
+
+                if (data.time < 1) {
+                    document.getElementById(time_id).textContent = "Time taken by CPU: " + data.time.toFixed(4) + " s"
+                }
+                else {
+                    document.getElementById(time_id).textContent = "Time taken by CPU: " + data.time.toFixed(3) + " s"
+                }
+
+                if (total_time_taken < 1) {
+                    document.getElementById(total_time_id).textContent = "Total time elapsed: " + total_time_taken.toFixed(4) + " s"
+                }
+                else {
+                    document.getElementById(total_time_id).textContent = "Total time elapsed: " + total_time_taken.toFixed(3) + " s"
+                }
+            }
+            function showError(message) {
+                document.getElementById("error").textContent = message;
+            }
+            function clearInput() {
+                // Clears the input text box
+                document.getElementById("input").value = ""
+            }
+            function clearData(algorithm) {
+                let output_id = "output-" + algorithm
+                let time_id = "time-" + algorithm
+                let total_time_id = "total-time-" + algorithm
+
+                // Clears the outputs
+                document.getElementById(output_id).value = ""
+                document.getElementById(time_id).textContent = "Time taken by CPU:"
+                document.getElementById(total_time_id).textContent = "Total time elapsed:"
+
+                // Removes the green color
+                removeColor(algorithm)
+            }
+            function removeColor(algorithm) {
+                // Removes the green color
+                let time_id = "time-" + algorithm
+                let total_time_id = "total-time-" + algorithm
+
+                document.getElementById(algorithm).classList.remove("completed");
+                document.getElementById(time_id).classList.remove("completed");
+                document.getElementById(total_time_id).classList.remove("completed");
+            }
+            function loading(type, algorithm, size) {
+                let output_id = "output-" + algorithm
+                let time_id = "time-" + algorithm
+                let total_time_id = "total-time-" + algorithm
+                let i = 1
+
+                document.getElementById(output_id).value = "Processing " + Intl.NumberFormat('en-US').format(size) + " " + type + " numbers"
+                document.getElementById(time_id).textContent = "Time taken by CPU: "
+                document.getElementById(total_time_id).textContent = "Total time elapsed: "
+
+                const intervalId = setInterval(() => {
+                    const dots = ".".repeat(i % 4)
+
+                    document.getElementById(output_id).value = "Processing " + Intl.NumberFormat('en-US').format(size) + " " + type + " numbers" + dots
+                    document.getElementById(time_id).textContent = "Time taken by CPU: " + dots
+                    document.getElementById(total_time_id).textContent = "Total time elapsed: " + dots
+                    i++
+                }, 1000);
+
+                return intervalId
+            }
+            function setDisabled(flag) {
+                document.querySelectorAll(".button").forEach(b => b.disabled = flag);
+                document.getElementById("input").disabled = flag;
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const algorithms = ["bubble", "selection", "insertion", "merge", "quick"];
+                const controllers = [];
+                const timers = {};
+
+                // Run button
+                // This function is written with the help from Claude
+                document.getElementById("run").addEventListener("click", async () => {
+                    showError("")
+                    controllers.length = 0
+                    let pending = algorithms.length;
+
+                    let numbers;
+                    try {
+                        numbers = parseNumbers(document.getElementById("input").value);
+                    } catch (e) {
+                        showError(e.message);
+                        return;
+                    }
+
+                    setDisabled(true);
+
+                    for (const algorithm of algorithms) {
+                        const start_time = performance.now();
+
+                        removeColor(algorithm)
+                        timers[algorithm] = loading("custom", algorithm, numbers.length)
+
+                        const controller = new AbortController()
+                        controllers.push(controller)
+
+                        requestData(algorithm, numbers, controller.signal)
+                            .then(data => {
+                                showResults(data, start_time)
+                            })
+                            .catch(err => {
+                                if (err.name === "AbortError") {
+                                    showError("")
+                                }
+                                else {
+                                    showError(err.message)
+                                }
+                            })
+                            .finally(() => {
+                                clearInterval(timers[algorithm]);
+                                pending--;
+                                if (pending === 0) {
+                                    setDisabled(false)
+                                }
+                            });
+                    }
+                });
+
+                // Nine N fixed unordered numbers buttons
+                // This function is written with the help from Claude
+                document.querySelectorAll("button[data-id]").forEach(button => {
+                    button.addEventListener("click", async (event) => {
+                        showError("")
+                        controllers.length = 0
+                        setDisabled(true);
+                        let pending = algorithms.length;
+
+                        const size = Number(event.currentTarget.dataset.id)
+                        let numbers = shuffledSequence(size)
+
+                        for (const algorithm of algorithms) {
+                            const start_time = performance.now();
+
+                            removeColor(algorithm)
+                            timers[algorithm] = loading("fixed unordered", algorithm, size)
+
+                            const controller = new AbortController()
+                            controllers.push(controller)
+
+                            requestData(algorithm, numbers, controller.signal)
+                                .then(data => {
+                                    showResults(data, start_time)
+                                })
+                                .catch(err => {
+                                    if (err.name === "AbortError") {
+                                        showError("")
+                                    }
+                                    else {
+                                        showError(err.message)
+                                    }
+                                })
+                                .finally(() => {
+                                    clearInterval(timers[algorithm]);
+                                    pending--;
+                                    if (pending === 0) {
+                                        setDisabled(false)
+                                    }
+                                })
+                        }
+                    });
+                });
+
+                // Stop/Reset button
+                document.getElementById("reset").addEventListener("click", function() {
+                    for (const controller of controllers) {
+                        controller.abort()
+                    }
+                    showError("")
+                    setDisabled(false)
+                    clearInput()
+                    for (const algorithm of algorithms) {
+                        clearInterval(timers[algorithm])
+                        clearData(algorithm)
+                    }
+                });
+            });
+        </script>
+    </head>
+    <body class="bg-primary-subtle text-dark-emphasis">
+        <header>
+            <div class="footer-minimal__container">
+                <div>Algorithms</div>
+                <div class="fs-5">Final Project by Lim Vee Shen</div>
+            </div>
+        </header>
+        <main>
+            <div class="container text-center" style="width: 100%">
+                <div class="mb-4 mt-4 fs-3">
+                    <div>This web page is served for the final project of CS50X</div>
+                    <div>Introduction to Computer Science by Harvard University.</div>
+                </div>
+                <div class="mb-5 fs-4">
+                    <div>The purpose of this web page is to compare the efficiency of different sorting algorithms</div>
+                    <div>when dealing with different sizes of data.</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="text col fs-4">
+                        N fixed unordered numbers
+                    </div>
+                    <div class="action col-7 font-monospace">
+                        <div>
+                            <form class="mb-2">
+                                <button data-id="1000" class="btn btn-dark button" type="button">1 - 1,000</button>
+                                <button data-id="2500" class="btn btn-dark button" type="button">1 - 2,500</button>
+                                <button data-id="5000" class="btn btn-dark button" type="button">1 - 5,000</button>
+                                <button data-id="7500" class="btn btn-dark button" type="button">1 - 7,500</button>
+                                <button data-id="10000" class="btn btn-dark button" type="button">1 - 10,000</button>
+                            </form>
+                            <form>
+                                <button data-id="25000" class="btn btn-dark button" type="button">1 - 25,000</button>
+                                <button data-id="50000" class="btn btn-dark button" type="button">1 - 50,000</button>
+                                <button data-id="75000" class="btn btn-dark button" type="button">1 - 75,000</button>
+                                <button data-id="100000" class="btn btn-dark button" type="button">1 - 100,000</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="text col fs-4">
+                        <div>Custom numbers</div>
+                        <div>(separated by commas or spaces)</div>
+                    </div>
+                    <div class="col-7">
+                        <form>
+                            <textarea id="input" class="form-control font-monospace" rows="3" name="numbers" placeholder="e.g. 5, 7, 2, 8, 2.5, -3"></textarea>
+                            <div id="error" class="text-danger text-start font-monospace" style="font-size: 18px"></div>
+                        </form>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <form class="float-end" style="margin-bottom: 20px">
+                            <button id="run" class="btn btn-light btn-lg text-success button" type="button">Run</button>
+                            <button id="reset" class="btn btn-light btn-lg text-danger" type="button">Stop/Reset</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col fs-4 text-start" style="margin-bottom: 0px">
+                        <div>Print output</div>
+                    </div>
+                </div>
+
+                {% set algorithms = ["bubble", "selection", "insertion", "merge", "quick"] %}
+                {% for algorithm in algorithms %}
+                    {% set name = algorithm|capitalize ~ " Sort" %}
+                    {% set output_id = "output-" ~ algorithm %}
+                    {% set time_id = "time-" ~ algorithm %}
+                    {% set total_time_id = "total-time-" ~ algorithm %}
+
+                    <div class="row align-items-center mt-3">
+                        <div class="col-2 fs-3">
+                            <div id="{{algorithm}}">{{ name }}</div>
+                        </div>
+                        <div class="col-7">
+                            <textarea id="{{output_id}}" class="form-control font-monospace" rows="5" readonly style="resize: none; max-width: 100%"></textarea>
+                        </div>
+                        <div class="col-3 fs-5">
+                            <div id="{{time_id}}" class="text-start text-nowrap font-monospace">Time taken by CPU: </div>
+                            <div id="{{total_time_id}}" class="text-start text-nowrap font-monospace">Total time elapsed: </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="text-start mt-4 mb-4">
+                    <div>Note:</div>
+                    <div>
+                        <ul>
+                            <li>
+                                Time taken by CPU is the time taken for the CPU to execute the program, and it shows the efficiency of the code.
+                            </li>
+                            <li>
+                                Total time elapsed is the time starting from which the user clicks a button until the output is displayed.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <footer class="footer-minimal">
+            <div class="footer-minimal__container">
+                <p class="footer-minimal__copyright">
+                    &copy; 2026 Lim Vee Shen. All Rights Reserved.
+                </p>
+                <nav class="footer-minimal__nav" aria-label="Footer Social Media Links">
+                    <ul>
+                        <li>
+                            <a href="https://github.com/Vs1750" aria-label="My GitHub Profile">
+                                <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <title>GitHub</title>
+                                    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                                </svg>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </footer>
+    </body>
+</html>

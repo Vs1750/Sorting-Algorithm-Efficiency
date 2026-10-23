@@ -1,0 +1,102 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Onest', sans-serif, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+}
+
+main {
+    flex: 1;
+}
+
+.text {
+    font-size: 20px;
+    text-align: right;
+}
+
+.action {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.completed {
+    color: #32EC45;
+}
+
+:root {
+    --footer-bg-color: #f8f9fa;
+    --footer-text-color: #6c757d;
+    --footer-link-hover-color: #343a40;
+}
+
+header {
+    background-color: var(--footer-bg-color);
+    color: var(--footer-text-color);
+    font-size: 2rem;
+    border-top: 1px solid #e7e7e7;
+    width: 100%;
+    margin: 0;
+}
+
+/* FOOTER STYLES START HERE */
+
+.footer-minimal {
+    background-color: var(--footer-bg-color);
+    color: var(--footer-text-color);
+    font-size: 0.875rem;
+    border-top: 1px solid #e7e7e7;
+    width: 100%;
+    margin: 0;
+}
+
+.footer-minimal__container {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+
+    /* Mobile-first: stack items vertically and center them */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.footer-minimal__copyright {
+    margin: 0;
+    text-align: center;
+}
+
+.footer-minimal__nav ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+    /* Space between icons */
+}
+
+.footer-minimal__nav a {
+    color: var(--footer-text-color);
+    transition: color 0.2s ease-in-out;
+}
+
+.footer-minimal__nav a:hover {
+    color: var(--footer-link-hover-color);
+}
+
+.footer-minimal__nav svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    /* Inherits the color of the parent link */
+}
+
+/* Media query for medium screens and up (tablets, desktops) */
+@media (min-width: 576px) {
+    .footer-minimal__container {
+        /* On these screens, arrange items in a row */
+        flex-direction: row;
+        justify-content: space-between;
+    }
+}
